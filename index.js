@@ -6,6 +6,7 @@ function EntityEditor(el, options) {
   this.html = this.getValue();
 
   this.$el.on('input', that.oninput.bind(that));
+  this.$el.on('keypress', that.unselectAnchors.bind(that));
   this.$el.trigger('ee:init');
 
   return this;
@@ -22,6 +23,44 @@ EntityEditor.prototype.oninput = function () {
   this.fixEmptyEls();
   this.replaceEntities();
   this.$el.trigger('ee:input');
+}
+
+EntityEditor.prototype.unselectAnchors = function (e) {
+  var selection
+    , anchorNode
+    , range
+
+  // If key* event is a special (i.e. non-printing) character, don't do anything
+  if (e.which === 0) return;
+
+  selection = rangy.getSelection();
+
+  // Check if the selection is inside an anchor node
+  if (selection.focusNode.nodeType === Node.TEXT_NODE &&
+      selection.focusNode.parentNode.nodeName.toUpperCase() === 'A') {
+    anchorNode = selection.focusNode.parentNode;
+  } else if (selection.focusNode.nodeName === 'A') {
+    anchorNode = selection.focusNode;
+  }
+
+  // If it's not, continue as normal
+  if (!anchorNode) return;
+
+  // If selection is at very start or very end of anchor, move it immediately
+  // outside (before or after)
+  if (selection.focusOffset === selection.focusNode.textContent.length) {
+    range = rangy.createRange();
+    range.collapseAfter(anchorNode);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    this.$el.one('keyup', this.el.normalize);
+  } else if (selection.focusOffset === 0) {
+    range = rangy.createRange();
+    range.collapseBefore(anchorNode);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    this.$el.one('keyup', this.el.normalize);
+  }
 }
 
 EntityEditor.prototype.fixEmptyEls = function () {
