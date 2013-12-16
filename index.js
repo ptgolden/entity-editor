@@ -130,7 +130,7 @@ EntityEditor.prototype.replaceEntities = function () {
       results.push({
         start: matches.index,
         end: this.ENTITY_REGEX.lastIndex,
-        text: node.textContent.substring(matches.index, this.ENTITY_REGEX.lastIndex)
+        text: node.textContent.substring(matches.index + 1, this.ENTITY_REGEX.lastIndex - 1)
       })
     }
 
@@ -138,13 +138,22 @@ EntityEditor.prototype.replaceEntities = function () {
     results.reverse();
 
     results.forEach(function (result) {
-      var range = rangy.createRange();
-      selection.removeAllRanges();
-      range.setStart(node, result.start);
-      range.setEnd(node, result.end);
+      var range = rangy.createRange()
+        , wrap
+        , anchor
+
+      wrap = node.splitText(result.start);
+      wrap.splitText(result.end - result.start);
+
+      range.selectNode(wrap);
       selection.removeAllRanges();
       selection.addRange(range);
-      document.execCommand('createLink', false, '#zzz');
+      document.execCommand('createLink', false, '#');
+
+      anchor = wrap.parentNode;
+      $(anchor).addClass('ee-entity');
+      this.$el.trigger('ee:entityLinked', { el: anchor, text: result.text });
+
     }, this);
 
   }, this);
