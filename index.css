@@ -1,0 +1,15 @@
+body {
+    margin-left: 1.5in;
+}
+
+#editor, #editor-source {
+    display: inline-block;
+    width: 400px;
+    border: 1px solid #444;
+    height: 400px;
+    padding: 12px;
+}
+
+#editor {
+    margin-right: 2em;
+}
