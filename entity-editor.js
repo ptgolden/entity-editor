@@ -19,10 +19,6 @@
 
     this.entityObserver = new MutationObserver(this.onmutations.bind(this));
     this.entityObserver.observe(el, { childList: true });
-    this.$el.on('ee:entityLinked', function (e, data) {
-      that.entityObserver.observe(data.el, { characterData: true, subtree: true });
-      that.entities.push( data.el );
-    });
 
     this.$el.on('input', that.oninput.bind(that));
     this.$el.on('keypress', that.unselectAnchors.bind(that));
@@ -65,6 +61,12 @@
     } else {
       this.$el.trigger('ee:entityEdited', [anchor]);
     }
+  }
+
+  EntityEditor.prototype.handleAddedAnchor = function (anchor, text) {
+    this.entityObserver.observe(anchor, { characterData: true, subtree: true });
+    this.entities.push(anchor);
+    this.$el.trigger('ee:entityLinked', { el: anchor, text: result.text });
   }
 
   EntityEditor.prototype.handleRemovedAnchor = function (anchor) {
@@ -255,7 +257,7 @@
 
         anchor = wrap.parentNode;
         $(anchor).addClass('ee-entity');
-        this.$el.trigger('ee:entityLinked', { el: anchor, text: result.text });
+        this.handleAddedAnchor(anchor, result.text);
 
       }, this);
 
