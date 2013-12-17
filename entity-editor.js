@@ -40,10 +40,12 @@
     this.$el.trigger('ee:input');
   }
 
+  // Replaces an anchor with its child elements. I use this function instead
+  // of document.executeCommand('unlink') for two reasons. First, I'm sure
+  // that it doesn't act the same across browsers. Second, in firefox, it just
+  // removes the href attribute and leaves an "empty" anchor. Which is stupid.
   EntityEditor.prototype.unlinkAnchor = function (anchor) {
-    var range = rangy.createRange()
-      , childs
-
+    var range = rangy.createRange();
     range.selectNode(anchor);
     this.saveCursorPosition();
     slice.call(anchor.childNodes).forEach(function (child) {
@@ -54,6 +56,9 @@
     this.el.normalize();
   }
 
+  // When an anchor's text is edited, either remove it if the edges of the text
+  // are not the entity delimiters or trigger an `entityEdited` event. Anchor
+  // edits are monitored by a MutationObserver object.
   EntityEditor.prototype.handleEditedAnchor = function (anchor) {
     var text = anchor.textContent;
     if (text.substr(0, 1) !== '[' || text.substr(-1, 1) !== ']') {
@@ -63,18 +68,25 @@
     }
   }
 
+  // When an anchor is added, observe it with the previously defined
+  // MutationObserver, push it to the internal list of entities, and trigger
+  // an `entityLinked` event.
   EntityEditor.prototype.handleAddedAnchor = function (anchor, text) {
     this.entityObserver.observe(anchor, { characterData: true, subtree: true });
     this.entities.push(anchor);
     this.$el.trigger('ee:entityLinked', { el: anchor, text: result.text });
   }
 
+  // When an anchor is removed, remove it from the internal list of entities
+  // and trigger an entityUnlinked event.
   EntityEditor.prototype.handleRemovedAnchor = function (anchor) {
-    console.log('anchor removed', anchor, this.entities);
     this.entities.pop(anchor);
     this.$el.trigger('ee:entityUnlinked');
   }
 
+  // Callback for editor's MutationObserver object. Checks whether entity
+  // anchors were either edited or removed, then calls the appropriate
+  // functions.
   EntityEditor.prototype.onmutations = function (mutations) {
     var anchorTextEdits = []
       , anchorRemovals = []
@@ -102,6 +114,14 @@
     anchorRemovals.forEach(this.handleRemovedAnchor, this);
   }
 
+  // Function to prevent adding text at the margins of entity anchors.
+  //
+  // For example, in the entity <a>[John Doe]</a>, text should be able to be
+  // added ONLY within the brackets.
+  //
+  // Meant to be called on keypress event. If the key is a printing character 
+  // and the cursor is at the margin of an anchor, we move it outside before 
+  // the character is actually entered.
   EntityEditor.prototype.unselectAnchors = function (e) {
     var selection
       , anchorNode
