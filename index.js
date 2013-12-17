@@ -3,7 +3,7 @@ var el = document.getElementById('editor')
   , $src = $('#editor-source')
 
 function updateSource() {
-  setTimeout(() => $src.text(editor.getValue()), 0);
+  setTimeout(function () { $src.text(editor.getValue()) }, 0, this);
 }
 
 editor.$el.on('ee:input', updateSource);
