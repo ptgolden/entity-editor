@@ -29,59 +29,13 @@
 
   EntityEditor.prototype.ENTITY_REGEX = /\[([^\]<]{1,50})\]/g;
 
-  EntityEditor.prototype.getValue = function () {
-    return this.el.innerHTML.trim();
-  }
+  EntityEditor.prototype.getValue = function () { return this.el.innerHTML.trim(); }
 
   EntityEditor.prototype.oninput = function () {
     this.html = this.getValue();
     this.fixEmptyEls();
     this.replaceEntities();
     this.$el.trigger('ee:input');
-  }
-
-  // Replaces an anchor with its child elements. I use this function instead
-  // of document.executeCommand('unlink') for two reasons. First, I'm sure
-  // that it doesn't act the same across browsers. Second, in firefox, it just
-  // removes the href attribute and leaves an "empty" anchor. Which is stupid.
-  EntityEditor.prototype.unlinkAnchor = function (anchor) {
-    var range = rangy.createRange();
-    range.selectNode(anchor);
-    this.saveCursorPosition();
-    slice.call(anchor.childNodes).forEach(function (child) {
-      anchor.parentNode.insertBefore(child, anchor);
-    });
-    anchor.remove();
-    this.restoreCursorPosition();
-    this.el.normalize();
-  }
-
-  // When an anchor's text is edited, either remove it if the edges of the text
-  // are not the entity delimiters or trigger an `entityEdited` event. Anchor
-  // edits are monitored by a MutationObserver object.
-  EntityEditor.prototype.handleEditedAnchor = function (anchor) {
-    var text = anchor.textContent;
-    if (text.substr(0, 1) !== '[' || text.substr(-1, 1) !== ']') {
-      this.unlinkAnchor(anchor);
-    } else {
-      this.$el.trigger('ee:entityEdited', [anchor]);
-    }
-  }
-
-  // When an anchor is added, observe it with the previously defined
-  // MutationObserver, push it to the internal list of entities, and trigger
-  // an `entityLinked` event.
-  EntityEditor.prototype.handleAddedAnchor = function (anchor, text) {
-    this.entityObserver.observe(anchor, { characterData: true, subtree: true });
-    this.entities.push(anchor);
-    this.$el.trigger('ee:entityLinked', { el: anchor, text: result.text });
-  }
-
-  // When an anchor is removed, remove it from the internal list of entities
-  // and trigger an entityUnlinked event.
-  EntityEditor.prototype.handleRemovedAnchor = function (anchor) {
-    this.entities.pop(anchor);
-    this.$el.trigger('ee:entityUnlinked');
   }
 
   // Callback for editor's MutationObserver object. Checks whether entity
@@ -112,6 +66,50 @@
 
     anchorTextEdits.forEach(this.handleEditedAnchor, this);
     anchorRemovals.forEach(this.handleRemovedAnchor, this);
+  }
+
+  // When an anchor is added, observe it with the previously defined
+  // MutationObserver, push it to the internal list of entities, and trigger
+  // an `entityLinked` event.
+  EntityEditor.prototype.handleAddedAnchor = function (anchor, text) {
+    this.entityObserver.observe(anchor, { characterData: true, subtree: true });
+    this.entities.push(anchor);
+    this.$el.trigger('ee:entityLinked', { el: anchor, text: result.text });
+  }
+
+  // When an anchor's text is edited, either remove it if the edges of the text
+  // are not the entity delimiters or trigger an `entityEdited` event. Anchor
+  // edits are monitored by a MutationObserver object.
+  EntityEditor.prototype.handleEditedAnchor = function (anchor) {
+    var text = anchor.textContent;
+    if (text.substr(0, 1) !== '[' || text.substr(-1, 1) !== ']') {
+      this.unlinkAnchor(anchor);
+    } else {
+      this.$el.trigger('ee:entityEdited', [anchor]);
+    }
+  }
+
+  // Replaces an anchor with its child elements. I use this function instead
+  // of document.executeCommand('unlink') for two reasons. First, I'm sure
+  // that it doesn't act the same across browsers. Second, in firefox, it just
+  // removes the href attribute and leaves an "empty" anchor. Which is stupid.
+  EntityEditor.prototype.unlinkAnchor = function (anchor) {
+    var range = rangy.createRange();
+    range.selectNode(anchor);
+    this.saveCursorPosition();
+    slice.call(anchor.childNodes).forEach(function (child) {
+      anchor.parentNode.insertBefore(child, anchor);
+    });
+    anchor.remove();
+    this.restoreCursorPosition();
+    this.el.normalize();
+  }
+
+  // When an anchor is removed, remove it from the internal list of entities
+  // and trigger an entityUnlinked event.
+  EntityEditor.prototype.handleRemovedAnchor = function (anchor) {
+    this.entities.pop(anchor);
+    this.$el.trigger('ee:entityUnlinked');
   }
 
   // Function to prevent adding text at the margins of entity anchors.
