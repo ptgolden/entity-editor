@@ -114,10 +114,26 @@ EntityEditor.prototype.fixEmptyEls = function () {
 }
 
 EntityEditor.prototype.saveCursorPosition = function () {
-  var selection = rangy.getSelection();
+  var selection = rangy.getSelection()
+    , insertAfter = true
+    , prevChar 
+    , range
+
+  if (selection.focusOffset > 0) {
+    prevChar = selection.focusNode.textContent.substr(selection.focusOffset - 1, 1);
+    if (prevChar === '[') {
+      insertAfter = false;
+    }
+  }
 
   this.placeholderEl = this.placeholderEl || document.createElement('span');
-  selection.getRangeAt(0).insertNode(this.placeholderEl);
+  if (insertAfter) {
+    selection.getRangeAt(0).insertNode(this.placeholderEl);
+  } else {
+    range = rangy.createRange();
+    range.collapseToPoint(selection.focusNode, selection.focusOffset - 1);
+    range.insertNode(this.placeholderEl);
+  }
 }
 
 EntityEditor.prototype.restoreCursorPosition = function () {
