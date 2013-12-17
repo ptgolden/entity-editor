@@ -156,6 +156,8 @@ EntityEditor.prototype.replaceEntities = function () {
     , selection
     , textNodes
 
+  this.el.normalize();
+
   thereIsANeed = Array.prototype.some.call(this.el.childNodes, function (el) {
     return el.nodeType === Node.TEXT_NODE &&
       el.textContent.search(that.ENTITY_REGEX) > -1;
