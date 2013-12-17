@@ -5,6 +5,11 @@ function EntityEditor(el, options) {
   this.$el = $(el);
   this.html = this.getValue();
 
+  this.entityObserver = new MutationObserver(this.removePrunedEntities.bind(this));
+  this.$el.on('ee:entityLinked', function (e, data) {
+    that.entityObserver.observe(data.el, { characterData: true, subtree: true });
+  });
+
   this.$el.on('input', that.oninput.bind(that));
   this.$el.on('keypress', that.unselectAnchors.bind(that));
   this.$el.trigger('ee:init');
@@ -23,6 +28,35 @@ EntityEditor.prototype.oninput = function () {
   this.fixEmptyEls();
   this.replaceEntities();
   this.$el.trigger('ee:input');
+}
+
+EntityEditor.prototype.removePrunedEntities = function (mutations) {
+  var anchor
+    , text
+    , mutation
+    , range
+    , childs
+
+  for (var i = 0; i < mutations.length; i++) {
+    mutation = mutations[i];
+    anchor = mutation.target.parentNode;
+    break;
+  }
+
+  if (!anchor) return; // parent was removed (better way to check?)
+
+  text = anchor.textContent;
+  if (text.substr(0, 1) !== '[' || text.substr(-1, 1) !== ']') {
+    range = rangy.createRange();
+    range.selectNode(anchor);
+
+    this.saveCursorPosition();
+    childs = Array.prototype.slice.call(anchor.childNodes);
+    childs.forEach(function (node) { anchor.parentNode.insertBefore(node, anchor) });
+    anchor.remove();
+    this.restoreCursorPosition();
+    this.el.normalize();
+  }
 }
 
 EntityEditor.prototype.unselectAnchors = function (e) {
