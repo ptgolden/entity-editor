@@ -74,7 +74,7 @@
   EntityEditor.prototype.handleAddedAnchor = function (anchor, text) {
     this.entityObserver.observe(anchor, { characterData: true, subtree: true });
     this.entities.push(anchor);
-    this.$el.trigger('ee:entityLinked', { el: anchor, text: result.text });
+    this.$el.trigger('ee:entityLinked', { el: anchor, text: text });
   }
 
   // When an anchor's text is edited, either remove it if the edges of the text
