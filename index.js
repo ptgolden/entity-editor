@@ -222,7 +222,7 @@ var el = document.getElementById('editor')
   , $src = $('#editor-source')
 
 function updateSource() {
-  $src.text(editor.getValue());
+  setTimeout(() => $src.text(editor.getValue()), 0);
 }
 
 editor.$el.on('ee:input', updateSource);
