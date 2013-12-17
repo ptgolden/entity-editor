@@ -4,6 +4,7 @@ body {
 
 #editor, #editor-source {
     display: inline-block;
+    vertical-align: top;
     width: 400px;
     border: 1px solid #444;
     height: 400px;
@@ -12,4 +13,10 @@ body {
 
 #editor {
     margin-right: 2em;
+}
+
+.ee-entity {
+    color: black;
+    text-decoration: none;
+    background: #d2d2ff;
 }
