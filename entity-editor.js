@@ -17,7 +17,8 @@
 
     this.entities = [];
 
-    this.entityObserver = new MutationObserver(this.removePrunedEntities.bind(this));
+    this.entityObserver = new MutationObserver(this.onmutations.bind(this));
+    this.entityObserver.observe(el, { childList: true });
     this.$el.on('ee:entityLinked', function (e, data) {
       that.entityObserver.observe(data.el, { characterData: true, subtree: true });
       that.entities.push( data.el );
@@ -43,42 +44,60 @@
     this.$el.trigger('ee:input');
   }
 
-  EntityEditor.prototype.removePrunedEntities = function (mutations) {
-    var anchors = []
-      , text
-      , mutation
-      , range
+  EntityEditor.prototype.unlinkAnchor = function (anchor) {
+    var range = rangy.createRange()
       , childs
 
-    for (var i = 0; i < mutations.length; i++) {
-      mutation = mutations[i];
-      if (mutation.target.parentNode.nodeName.toUpperCase() === 'A') {
-        if (anchors.indexOf(mutation.target.parentNode) === -1) {
-          anchors.push(mutation.target.parentNode);
-        }
-      }
+    range.selectNode(anchor);
+    this.saveCursorPosition();
+    slice.call(anchor.childNodes).forEach(function (child) {
+      anchor.parentNode.insertBefore(child, anchor);
+    });
+    anchor.remove();
+    this.restoreCursorPosition();
+    this.el.normalize();
+  }
+
+  EntityEditor.prototype.handleEditedAnchor = function (anchor) {
+    var text = anchor.textContent;
+    if (text.substr(0, 1) !== '[' || text.substr(-1, 1) !== ']') {
+      this.unlinkAnchor(anchor);
+    } else {
+      this.$el.trigger('ee:entityEdited', [anchor]);
     }
+  }
 
-    if (!anchors.length) return; // parent was removed (better way to check?)
+  EntityEditor.prototype.handleRemovedAnchor = function (anchor) {
+    console.log('anchor removed', anchor, this.entities);
+    this.entities.pop(anchor);
+    this.$el.trigger('ee:entityUnlinked');
+  }
 
-    anchors.forEach(function (anchor) {
-      text = anchor.textContent;
-      if (text.substr(0, 1) !== '[' || text.substr(-1, 1) !== ']') {
-        range = rangy.createRange();
-        range.selectNode(anchor);
+  EntityEditor.prototype.onmutations = function (mutations) {
+    var anchorTextEdits = []
+      , anchorRemovals = []
 
-        this.saveCursorPosition();
-        childs = slice.call(anchor.childNodes);
-        childs.forEach(function (node) { anchor.parentNode.insertBefore(node, anchor) });
-        anchor.remove();
-        if (this.entities.indexOf(anchor) > -1) {
-          this.entities.pop(anchor);
-          this.$el.trigger('ee:entityUnlinked', [anchor]);
-        }
-        this.restoreCursorPosition();
-        this.el.normalize();
-      }
-    }, this);
+    anchorRemovals = mutations.filter(function (mutation) {
+      return mutation.type === 'childList' &&
+        mutation.removedNodes.length &&
+        mutation.removedNodes[0].nodeName === 'A';
+    }).map(function (mutation) {
+      return mutation.removedNodes[0];
+    });
+
+    anchorTextEdits = mutations.filter(function (mutation) {
+      return mutation.type === 'characterData' &&
+        mutation.target.parentNode.nodeName.toUpperCase() === 'A';
+    }).map(function (mutation) {
+      return mutation.target.parentNode;
+    }).reduce(function (arr, anchor) {
+      return arr.indexOf(anchor) === -1 && anchorRemovals.indexOf(anchor) === -1
+        ? arr.concat(anchor)
+        : arr;
+    }, []);
+
+    anchorTextEdits.forEach(this.handleEditedAnchor, this);
+    anchorRemovals.forEach(this.handleRemovedAnchor, this);
   }
 
   EntityEditor.prototype.unselectAnchors = function (e) {
