@@ -130,8 +130,10 @@
 
     this.placeholderEl = this.placeholderEl || window.document.createElement('span');
     if (insertAfter) {
+      this.placeholderEl.inserted = 'after';
       selection.getRangeAt(0).insertNode(this.placeholderEl);
     } else {
+      this.placeholderEl.inserted = 'before';
       range = rangy.createRange();
       range.collapseToPoint(selection.focusNode, selection.focusOffset - 1);
       range.insertNode(this.placeholderEl);
@@ -139,14 +141,30 @@
   }
 
   EntityEditor.prototype.restoreCursorPosition = function () {
-    var selection, placeholderRange
+    var selection
+     ,  placeholderRange
+     ,  nextRange
 
     if (!this.placeholderEl) return;
 
     selection = rangy.getSelection();
     placeholderRange = rangy.createRange();
-    placeholderRange.selectNode(this.placeholderEl);
-    placeholderRange.collapse(false);
+    this.el.normalize();
+
+    // If the span was inserted BEFORE the cursor previously, restore the
+    // cursor in the next text node in the tree, offset by one
+    if (this.placeholderEl.inserted === 'before' &&
+        this.placeholderEl.nextSibling &&
+        this.placeholderEl.nextSibling.textContent.length > 0) {
+
+      nextRange = rangy.createRange();
+      nextRange.selectNode(this.placeholderEl.nextSibling);
+      placeholderRange.collapseToPoint(nextRange.getNodes([3])[0], 1);
+    } else {
+      // Otherwise, go ahead and replace the cursor at the span
+      placeholderRange.selectNode(this.placeholderEl);
+      placeholderRange.collapse(false);
+    }
     selection.removeAllRanges();
     selection.addRange(placeholderRange);
     this.placeholderEl.parentNode.removeChild(this.placeholderEl);
