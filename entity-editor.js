@@ -15,9 +15,12 @@
     this.$el = $(el);
     this.html = this.getValue();
 
+    this.entities = [];
+
     this.entityObserver = new MutationObserver(this.removePrunedEntities.bind(this));
     this.$el.on('ee:entityLinked', function (e, data) {
       that.entityObserver.observe(data.el, { characterData: true, subtree: true });
+      that.entities.push( data.el );
     });
 
     this.$el.on('input', that.oninput.bind(that));
@@ -41,7 +44,7 @@
   }
 
   EntityEditor.prototype.removePrunedEntities = function (mutations) {
-    var anchor
+    var anchors = []
       , text
       , mutation
       , range
@@ -49,24 +52,33 @@
 
     for (var i = 0; i < mutations.length; i++) {
       mutation = mutations[i];
-      anchor = mutation.target.parentNode;
-      break;
+      if (mutation.target.parentNode.nodeName.toUpperCase() === 'A') {
+        if (anchors.indexOf(mutation.target.parentNode) === -1) {
+          anchors.push(mutation.target.parentNode);
+        }
+      }
     }
 
-    if (!anchor) return; // parent was removed (better way to check?)
+    if (!anchors.length) return; // parent was removed (better way to check?)
 
-    text = anchor.textContent;
-    if (text.substr(0, 1) !== '[' || text.substr(-1, 1) !== ']') {
-      range = rangy.createRange();
-      range.selectNode(anchor);
+    anchors.forEach(function (anchor) {
+      text = anchor.textContent;
+      if (text.substr(0, 1) !== '[' || text.substr(-1, 1) !== ']') {
+        range = rangy.createRange();
+        range.selectNode(anchor);
 
-      this.saveCursorPosition();
-      childs = slice.call(anchor.childNodes);
-      childs.forEach(function (node) { anchor.parentNode.insertBefore(node, anchor) });
-      anchor.remove();
-      this.restoreCursorPosition();
-      this.el.normalize();
-    }
+        this.saveCursorPosition();
+        childs = slice.call(anchor.childNodes);
+        childs.forEach(function (node) { anchor.parentNode.insertBefore(node, anchor) });
+        anchor.remove();
+        if (this.entities.indexOf(anchor) > -1) {
+          this.entities.pop(anchor);
+          this.$el.trigger('ee:entityUnlinked', [anchor]);
+        }
+        this.restoreCursorPosition();
+        this.el.normalize();
+      }
+    }, this);
   }
 
   EntityEditor.prototype.unselectAnchors = function (e) {
