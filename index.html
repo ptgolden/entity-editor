@@ -5,22 +5,43 @@
 
     <style type="text/css">
       body {
-          margin-left: 1.5in;
+        background: #f3f3f3;
+        margin: 12px 0 0 0;
       }
 
-      #editor, #editor-source {
+      .container { margin-left: 1.75in; }
+
+      .editor-wrapper {
+        width: 100%;
+        padding: 24px 0;
+        background: #999;
+        height: 250px;
+        margin-bottom: 1em;
+      }
+
+      #editor {
+        background: white;
+        padding: 24px;
+        height: 200px;
+        width: 852px;
+        line-height: 24px;
+        border: 1px solid #222;
+        box-shadow: 0px 4px 5px 5px #888;
+        outline: 0;
+        overflow-y: auto;
+      }
+
+      #editor-source { margin-right: 44px; }
+      #entities, #editor-source {
           display: inline-block;
           vertical-align: top;
           width: 400px;
           border: 1px solid #444;
-          height: 400px;
+          height: 250px;
           padding: 12px;
+          overflow: auto;
+          background: white;
       }
-
-      #editor {
-          margin-right: 2em;
-      }
-
       .ee-entity {
           color: black;
           text-decoration: none;
@@ -28,30 +49,48 @@
       }
     </style>
 
-  </head>
-  <body>
-    <h1>Entity identifier editor</h1>
-    <main>
-      <div id="editor" contenteditable="true" designmode="on">Click to edit</div>
-      <div id="editor-source">
-      </div>
-    </main>
-
     <script type="text/javascript" src="./lib/zepto.js"></script>
     <script type="text/javascript" src="./lib/rangy-1.2.3/rangy-core.js"></script>
     <script type="text/javascript" src="./entity-editor.js"></script>
     <script type="text/javascript">
-      var el = document.getElementById('editor')
-        , editor = new EntityEditor(el)
-        , $src = $('#editor-source')
+      $(document).ready( function () {
+        var el = document.getElementById('editor')
+          , editor = new EntityEditor(el)
+          , $src = $('#editor-source')
+          , $entities = $('#entities ul')
 
-      function updateSource() {
-        setTimeout(function () { $src.text(editor.getValue()) }, 0, this);
-      }
+        function updateSource() {
+          setTimeout(function () { $src.text(editor.getValue()) }, 0, this);
+        }
 
-      editor.$el.on('ee:input', updateSource);
-      updateSource();
+        function updateEntities() {
+          var html = '';
+          editor.entities.forEach(function (el) {
+            console.log(el);
+            html += '<li>' + el.textContent.slice(1,-1) + '</li>\n';
+          });
+          $entities.html(html);
+        }
+
+        editor.$el.on('ee:input', updateSource);
+        editor.$el.on('ee:entityLinked ee:entityUnlinked', updateEntities);
+        editor.$el.trigger('input');
+      });
     </script>
 
+  </head>
+  <body>
+    <header class="container">
+      <h1>Entity identifier editor</h1>
+    </header>
+    <main>
+      <div class="editor-wrapper">
+        <div id="editor" class="container" contenteditable="true" designmode="on">By [Patrick Golden]. Click to edit.</div>
+      </div>
+      <div class="container">
+        <div id="editor-source"></div>
+        <div id="entities"><ul><ul></div>
+      </div>
+    </main>
   </body>
 </html>
