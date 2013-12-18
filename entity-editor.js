@@ -5,8 +5,21 @@
   var slice = [].slice
     , filter = [].filter
     , some = [].some
+    , zeroSpaceObserver
 
   window.EntityEditor = EntityEditor;
+
+  zeroSpaceObserver = new MutationObserver(function (mutations, observer) {
+    var textNode = mutations[0].target
+      , selection = rangy.getSelection()
+      , range = rangy.createRange()
+
+    observer.disconnect();
+    textNode.textContent = textNode.textContent.slice(1);
+    range.collapseToPoint(textNode, 1)
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
 
   function EntityEditor(el, options) {
     var that = this;
@@ -151,9 +164,10 @@
     var selection
       , anchorNode
       , range
+      , zeroSpaceTextRange
 
     // If key* event is a special (i.e. non-printing) character, don't do anything
-    if (e.which === 0) return;
+    if (e.which === 0 || e.which === 8) return;
 
     selection = rangy.getSelection();
 
@@ -171,10 +185,14 @@
     // If selection is at very start or very end of anchor, move it immediately
     // outside (before or after)
     if (selection.focusOffset === selection.focusNode.textContent.length) {
-      range = rangy.createRange();
-      range.collapseAfter(anchorNode);
+      zeroSpaceTextRange = document.createTextNode('\u200B');
+      anchorNode.parentNode.insertBefore(zeroSpaceTextRange, anchorNode.nextSibling);
+      range = rangy .createRange();
+      range.selectNode(zeroSpaceTextRange);
+      range.collapse(false);
       selection.removeAllRanges();
       selection.addRange(range);
+      zeroSpaceObserver.observe(zeroSpaceTextRange, { characterData: true });
       this.$el.one('keyup', this.el.normalize);
     } else if (selection.focusOffset === 0) {
       range = rangy.createRange();
