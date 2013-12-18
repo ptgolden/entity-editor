@@ -112,6 +112,33 @@
     this.$el.trigger('ee:entityUnlinked');
   }
 
+  EntityEditor.prototype.linkRange = function (range) {
+    var anchor = document.createElement('a')
+      , selection = rangy.getSelection()
+      , selectionRange = selection.rangeCount && selection.getRangeAt(0)
+      , node
+      , newSelectionRange
+      , newSelectionOffset
+    
+    if (selectionRange
+        && range.commonAncestorContainer === selectionRange.commonAncestorContainer
+        && range.startOffset <= selectionRange.startOffset <= range.endOffset) {
+      node = selectionRange.commonAncestorContainer;
+      newSelectionRange = rangy.createRange();
+      newSelectionOffset = selectionRange.endOffset - range.startOffset;
+    }
+
+    range.surroundContents(anchor);
+    if (newSelectionRange) {
+      newSelectionRange = rangy.createRange();
+      newSelectionRange.collapseToPoint(anchor.childNodes[0], newSelectionOffset);
+      selection.removeAllRanges();
+      selection.addRange(newSelectionRange);
+    }
+    anchor.classList.add('ee-entity');
+    this.handleAddedAnchor(anchor);
+  }
+
   // Function to prevent adding text at the margins of entity anchors.
   //
   // For example, in the entity <a>[John Doe]</a>, text should be able to be
@@ -221,67 +248,44 @@
     this.placeholderEl.parentNode.removeChild(this.placeholderEl);
   }
 
+  EntityEditor.prototype.getNonEntityTextNodes = function () {
+    var range = rangy.createRange();
+    range.selectNode(this.el);
+    return range.getNodes([3], function(node) {
+      return node.parentNode.nodeName.toUpperCase() !== 'A';
+    });
+  }
+
   EntityEditor.prototype.replaceEntities = function () {
     var that = this
-      , thereIsANeed
+      , textNodes = this.getNonEntityTextNodes()
+      , needed
       , selection
-      , textNodes
 
-    this.el.normalize();
-
-    thereIsANeed = some.call(this.el.childNodes, function (el) {
-      return el.nodeType === Node.TEXT_NODE &&
-        el.textContent.search(that.ENTITY_REGEX) > -1;
+    needed = textNodes.some(function (node) {
+      return node.textContent.search(that.ENTITY_REGEX) > -1;
     });
 
-    if (!thereIsANeed) return;
-
-    selection = rangy.getSelection();
-    this.saveCursorPosition();
-
-    // Only deal with text nodes
-    textNodes = filter.call(this.el.childNodes, function (el) {
-      return el.nodeType === Node.TEXT_NODE;
-    });
+    if (!needed) return;
 
     // For each text node, search for entity regex and wrap results in an anchor
     textNodes.forEach(function (node) {
-      var results = []
+      var entityRanges = []
         , matches
+        , range
 
       while ( (matches = this.ENTITY_REGEX.exec(node.textContent)) != null ) {
-        results.push({
-          start: matches.index,
-          end: this.ENTITY_REGEX.lastIndex,
-          text: node.textContent.substring(matches.index + 1, this.ENTITY_REGEX.lastIndex - 1)
-        })
+        range = rangy.createRange();
+        range.setStart(node, matches.index);
+        range.setEnd(node, this.ENTITY_REGEX.lastIndex)
+        entityRanges.push(range);
       }
 
       // Start from the back so that we don't have to recalculate indexes
-      results.reverse();
-
-      results.forEach(function (result) {
-        var range = rangy.createRange()
-          , wrap
-          , anchor
-
-        wrap = node.splitText(result.start);
-        wrap.splitText(result.end - result.start);
-
-        range.selectNode(wrap);
-        selection.removeAllRanges();
-        selection.addRange(range);
-        window.document.execCommand('createLink', false, '#');
-
-        anchor = wrap.parentNode;
-        $(anchor).addClass('ee-entity');
-        this.handleAddedAnchor(anchor, result.text);
-
-      }, this);
-
+      entityRanges.reverse();
+      entityRanges.forEach(this.linkRange, this);
     }, this);
 
-    this.restoreCursorPosition();
     this.el.normalize();
   }
 
