@@ -31,7 +31,7 @@
     this.entities = [];
 
     this.entityObserver = new MutationObserver(this.onmutations.bind(this));
-    this.entityObserver.observe(el, { childList: true });
+    this.entityObserver.observe(el, { childList: true, subtree: true });
 
     this.$el.on('input', that.oninput.bind(that));
     this.$el.on('keypress', that.unselectAnchors.bind(that));
@@ -45,6 +45,7 @@
   EntityEditor.prototype.getValue = function () { return this.el.innerHTML.trim(); }
 
   EntityEditor.prototype.oninput = function () {
+    this.el.normalize();
     this.html = this.getValue();
     this.fixEmptyEls();
     this.replaceEntities();
@@ -57,6 +58,7 @@
   EntityEditor.prototype.onmutations = function (mutations) {
     var anchorTextEdits = []
       , anchorRemovals = []
+      , anchorAdditions = []
 
     anchorRemovals = mutations.filter(function (mutation) {
       return mutation.type === 'childList' &&
@@ -66,16 +68,26 @@
       return mutation.removedNodes[0];
     });
 
+    anchorAdditions = mutations.filter(function (mutation) {
+      return mutation.type === 'childList' &&
+        mutation.addedNodes.length &&
+        mutation.addedNodes[0].nodeName === 'A';
+    }).map(function (mutation) {
+      return mutation.addedNodes[0];
+    });
+
     anchorTextEdits = mutations.filter(function (mutation) {
       return mutation.type === 'characterData' &&
+        mutation.target.parentNode &&
         mutation.target.parentNode.nodeName.toUpperCase() === 'A';
     }).map(function (mutation) {
       return mutation.target.parentNode;
-    }).reduce(function (arr, anchor) {
-      return arr.indexOf(anchor) === -1 && anchorRemovals.indexOf(anchor) === -1
-        ? arr.concat(anchor)
-        : arr;
-    }, []);
+    });
+
+    // Anchor was split into two (by a new paragraph, for example)
+    if (anchorRemovals.length === 1 && anchorAdditions.length === 2) {
+      anchorAdditions.forEach(this.unlinkAnchor, this);
+    }
 
     anchorTextEdits.forEach(this.handleEditedAnchor, this);
     anchorRemovals.forEach(this.handleRemovedAnchor, this);
@@ -94,9 +106,18 @@
   // are not the entity delimiters or trigger an `entityEdited` event. Anchor
   // edits are monitored by a MutationObserver object.
   EntityEditor.prototype.handleEditedAnchor = function (anchor) {
-    var text = anchor.textContent;
+    var text = anchor.textContent
+      , containsBR
+
+    if (!anchor.parentNode) return;
+
     if (text.substr(0, 1) !== '[' || text.substr(-1, 1) !== ']') {
       this.unlinkAnchor(anchor);
+    } else if (anchor.children.length) {
+      containsBR = Array.some(anchor.children, function (el) {
+        return el.nodeName.toUpperCase() === 'BR';
+      });
+      if (containsBR) this.unlinkAnchor(anchor);
     } else {
       this.$el.trigger('ee:entityEdited', [anchor]);
     }
